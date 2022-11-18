@@ -25,12 +25,14 @@ public async Task<T> ExecuteInTransactionScopeAsync<T>(Func<Task<T>> action, int
                                          asyncFlowOption: TransactionScopeAsyncFlowOption.Enabled)
   )
   {
+      //- Check to see is Connection to data base is already open, if not Open a connection
       if (DbContext.Database.GetDbConnection().State != System.Data.ConnectionState.Open)
       {
           DbContext.Database.GetDbConnection().Open();
       }
-
+      //- Invoke action that pass from parameter
       T t = await action?.Invoke();
+      //- After action complete, tell scope to Complete
       scope.Complete();
       return t;
   }
@@ -40,4 +42,33 @@ public async Task<T> ExecuteInTransactionScopeAsync<T>(Func<Task<T>> action, int
 I create an object of **TransactionScope** by *using* so that we can encapsulate the code block inside it. When we create **TransactionScope** there are some parameters that we can pass through constructor for configuration, let me explain:
 - **scopeOption**: There are 3 options to be exact **Require**, **RequireNew**, **Supress**, I choose to use **Require** because I want my **scope** to use ambient transaction scope if it already crerated and if anything happen at any level when it is nested everything will roll-back to preserve consistent data; but you can choose different for different requirement. I would recommend to read more from this [Source](http://web.archive.org/web/20100829210742/http://www.pluralsight-training.net/community/blogs/jimjohn/archive/2005/06/18/11451.aspx).
 - **transactionOptions**: I will explain each property:
-  - **IsolationLevel**: is the extent to isolate data from current transaction scope, which mean how data that process during 
+  - **IsolationLevel**: is the extent to isolate data inside current transaction scope from other concurrent transaction or query, for my usage I choose **IsolationLevel.ReadCommitted** so that the data that I query inside current scope can be read with last commited value in other concurrent query but cannot update until current scope is **Complete()**. I suggest to read more from this [Source](https://learn.microsoft.com/en-us/dotnet/api/system.transactions.isolationlevel?view=netframework-4.8).
+  - **Timeout**: is the **TimeSpan** that indecate the time out of that transaction, it will throw error once the transaction reach that period, we use that because we don't want one transaction to hold data or operate for too long that might consume resources and could create dead-lock between transaction.
+- **asyncFlowOption**: is to determine that the scope will work will with task like **Task** and **async/await**, for that I will use **TransactionScopeAsyncFlowOption.Enabled** so it will work well with those operations.
+
+That is it for **TransactionScope** object configuration. Below is the example of how I use my method.
+
+```C#
+public async Task<User> AddUserAsync(string email, string phone)
+{
+    var newUserObj = await ExecuteInTransactionScopeAsync(async () =>
+    {
+        /*
+
+        ... Can be more code, or call other methods
+
+        */
+        //-Create new user
+        var newUser = new User();
+        newUser.Email = email;
+        newUser.PhoneNumber = phone;
+        //-Add and savechange
+        await DbContext.Users.AddAsync(newUser);
+        await DbContext.SaveChangesAsync();
+        return newUser;
+    });
+
+    return newUserObj;
+}
+```
+The usage is simple as that. I hope this will help you to implement this in your project and make every change in database stay consistency. All credit to my manager and colleague that help me learn this simple yet effective tenchnique.
