@@ -10,6 +10,7 @@ This guide outlines the steps to enable secure TLS remote access for Docker betw
 - A client machine to access Docker remotely.
 - OpenSSL installed on the server.
 - Ports configured on the server's firewall (default: `2376` for secure Docker connections).
+- Follow this instruction to allow remote daemon https://gist.github.com/styblope/dc55e0ad2a9848f2cc3307d4819d819f
 
 ---
 
