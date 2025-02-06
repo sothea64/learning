@@ -62,7 +62,7 @@ This guide covers:
        image: loicsharma/baget:latest
        container_name: baget
        ports:
-         - "5000:5000"
+         - "5000:80"
        environment:
          - Baget__Database__Type=Sqlite
          - Baget__Search__Type=Database
